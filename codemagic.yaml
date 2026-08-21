@@ -67,9 +67,6 @@ workflows:
 
       # ==========================================
       # Configure iOS Code Signing
-      # IMPORTANT:
-      # Only sign the MAIN Xcode project.
-      # Do NOT scan node_modules projects.
       # ==========================================
       - name: Set up iOS code signing
         script: |
