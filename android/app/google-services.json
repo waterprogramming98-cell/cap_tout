@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "52915474282",
+    "project_id": "tout-s-routes",
+    "storage_bucket": "tout-s-routes.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:52915474282:android:8b8cde2997352ad7011f13",
+        "android_client_info": {
+          "package_name": "com.captoutapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAt9UkaaFEgCLJWwgHVMWJ5L8jN0Qg9BUY"
+        },
+        {
+          "current_key": "AIzaSyBifKHiKS_qSq_Jw_riHsNYdFIlDdlUMB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:52915474282:android:b2930191e0b56450011f13",
+        "android_client_info": {
+          "package_name": "com.toutroutesapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAt9UkaaFEgCLJWwgHVMWJ5L8jN0Qg9BUY"
+        },
+        {
+          "current_key": "AIzaSyBifKHiKS_qSq_Jw_riHsNYdFIlDdlUMB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,103 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+apply plugin: "com.google.gms.google-services"
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+    namespace "com.captoutapp"
+    defaultConfig {
+        applicationId "com.captoutapp"
+        minSdk rootProject.ext.minSdkVersion
+        targetSdk rootProject.ext.targetSdkVersion
+        versionCode 2
+        versionName "1.0"
+    }
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+afterEvaluate {
+    // Disable JS bundling (we use pre-built Hermes bytecode bundle), CMake build (we use
+    // pre-built libappmodules.so from jniLibs with correct native module registrations), and lint
+    tasks.matching { t ->
+        t.name.contains("createBundle") ||
+        t.name.contains("bundleReleaseJsAndAssets") ||
+        t.name.contains("bundleDebugJsAndAssets") ||
+        t.name.contains("generateReactNativeEntryPoint") ||
+        t.name.contains("buildCMake") ||
+        t.name.contains("configureCMake") ||
+        t.name.contains("externalNativeBuild") ||
+        t.name == "lint"
+    }.all {
+        enabled = false
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        // Force a single version of play-services-location to prevent
+        // IncompatibleClassChangeError: FusedLocationProviderClient interface vs class conflict
+        force 'com.google.android.gms:play-services-location:21.3.0'
+        force 'com.google.android.gms:play-services-base:18.5.0'
+        force 'com.google.android.gms:play-services-basement:18.5.0'
+        force 'com.google.android.gms:play-services-tasks:18.2.0'
+    }
+}
+
+dependencies {
+    // Firebase BOM + messaging needed directly so MyFirebaseMessagingService.kt can compile
+    // (react-native-firebase_messaging uses 'implementation' not 'api' for firebase-messaging)
+    implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.facebook.react:react-android")
+    implementation project(":react-native-reanimated")
+    implementation project(":react-native-worklets")
+    implementation project(":react-native-gesture-handler")
+    implementation project(":react-native-screens")
+    implementation project(":react-native-safe-area-context")
+    implementation project(":react-native-community_slider")
+    implementation project(":react-native-vector-icons")
+    implementation project(":react-native-maps")
+    implementation project(":react-native-linear-gradient")
+    implementation project(":lottie-react-native")
+    implementation project(":react-native-biometrics")
+    implementation project(":react-native-device-info")
+    implementation project(":react-native-keychain")
+    implementation project(":react-native-video")
+    implementation project(":react-native-firebase_app")
+    implementation project(":react-native-firebase_auth")
+    implementation project(":react-native-firebase_firestore")
+    implementation project(":react-native-firebase_messaging")
+    implementation project(":react-native-firebase_storage")
+    implementation project(":react-native-geolocation-service")
+    implementation project(":react-native-image-picker")
+    implementation project(":react-native-async-storage")
+    implementation project(":react-native-get-random-values")
+    implementation project(":react-native-haptic-feedback")
+    implementation project(":notifee_react-native")
+    implementation project(":react-native-clipboard_clipboard")
+    implementation project(":react-native-community_datetimepicker")
+}

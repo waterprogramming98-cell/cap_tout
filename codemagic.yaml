@@ -1,0 +1,68 @@
+# codemagic.yaml — CapTout (Captain App) iOS Build Configuration
+# https://docs.codemagic.io/yaml-quick-start/
+#
+# REQUIRED ENVIRONMENT VARIABLES (set in Codemagic UI → App Settings → Environment variables):
+#   APP_STORE_CONNECT_KEY_IDENTIFIER  — Your App Store Connect API Key ID (e.g. ABC123DEF4)
+#   APP_STORE_CONNECT_ISSUER_ID       — Your App Store Connect Issuer ID (UUID format)
+#   APP_STORE_CONNECT_PRIVATE_KEY     — Contents of your .p8 API key file (paste full text)
+#   CERTIFICATE_PRIVATE_KEY           — Contents of your iOS Distribution certificate .p12 private key
+#   BUNDLE_ID                         — com.toutsroutes.captout  (must match Apple Developer Portal)
+#   APPLE_TEAM_ID                     — Your 10-character Apple Team ID (e.g. A1B2C3D4E5)
+#   GOOGLE_MAPS_API_KEY               — Your Google Maps iOS API key
+
+workflows:
+  ios-release:
+    name: CapTout iOS Release
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: $BUNDLE_ID
+      vars:
+        XCODE_PROJECT: "ios/ToutRoutesApp.xcodeproj"
+        XCODE_SCHEME: "ToutRoutesApp"
+        BUNDLE_ID: "com.captoutapp"
+      node: 20.0.0
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install --legacy-peer-deps
+
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install --repo-update
+
+      - name: Set Google Maps API Key
+        script: |
+          /usr/libexec/PlistBuddy -c "Set :GMSApiKey $GOOGLE_MAPS_API_KEY" ios/ToutRoutesApp/Info.plist || \
+          /usr/libexec/PlistBuddy -c "Add :GMSApiKey string $GOOGLE_MAPS_API_KEY" ios/ToutRoutesApp/Info.plist
+
+      - name: Set bundle version from build number
+        script: |
+          LATEST=$(app-store-connect get-latest-build-number "$BUNDLE_ID" 2>/dev/null || echo "0")
+          agvtool new-version -all $((LATEST + 1))
+
+      - name: Build iOS release IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
+        submit_to_app_store: false   # Set to true when ready for full release
