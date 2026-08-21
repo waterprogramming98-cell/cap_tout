@@ -47,6 +47,8 @@ workflows:
           rm -rf Pods
           rm -f Podfile.lock
 
+          pod cache clean --all || true
+
           pod install --repo-update
 
 
@@ -112,6 +114,18 @@ workflows:
             grep -E \
             "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|CODE_SIGN_IDENTITY" \
             || true
+
+
+      # ==========================================
+      # Clean DerivedData
+      # ==========================================
+      - name: Clean Xcode DerivedData
+        script: |
+          set -e
+
+          rm -rf "$HOME/Library/Developer/Xcode/DerivedData/"*
+
+          echo "DerivedData cleaned."
 
 
       # ==========================================
