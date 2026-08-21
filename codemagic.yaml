@@ -10,12 +10,18 @@ workflows:
 
     environment:
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.toutsroutes.captout
+        provisioning_profiles:
+          - profile: Tout
+            environment_variable: PROVISIONING_PROFILE_PATH
+
+        certificates:
+          - certificate: K-Waiter Apple Distribution
+            environment_variable: CERTIFICATE_PATH
 
       vars:
         BUNDLE_ID: "com.toutsroutes.captout"
         XCODE_PROJECT: "ios/ToutRoutesApp.xcodeproj"
+        XCODE_WORKSPACE: "ios/ToutRoutesApp.xcworkspace"
         XCODE_SCHEME: "ToutRoutesApp"
 
       node: 20.0.0
@@ -24,17 +30,22 @@ workflows:
 
     scripts:
 
+      # ============================================================
+      # 1. Install Node dependencies
+      # ============================================================
       - name: Install npm dependencies
         script: |
           npm install --legacy-peer-deps
 
+      # ============================================================
+      # 2. Install CocoaPods
+      # ============================================================
       - name: Install CocoaPods
         script: |
-          cd ios
+          cd "$CM_BUILD_DIR/ios"
 
           rm -rf Pods
           rm -rf build
-          rm -f Podfile.lock
 
           pod deintegrate || true
 
@@ -42,27 +53,68 @@ workflows:
 
           pod install --repo-update
 
+      # ============================================================
+      # 3. Set Google Maps API Key
+      # ============================================================
       - name: Set Google Maps API Key
         script: |
+          PLIST="$CM_BUILD_DIR/ios/ToutRoutesApp/Info.plist"
+
           /usr/libexec/PlistBuddy \
             -c "Set :GMSApiKey AIzaSyC09p4-3IhSac_zt_2C_fd-ML8kFaRAXes" \
-            ios/ToutRoutesApp/Info.plist || \
+            "$PLIST" || \
           /usr/libexec/PlistBuddy \
             -c "Add :GMSApiKey string AIzaSyC09p4-3IhSac_zt_2C_fd-ML8kFaRAXes" \
-            ios/ToutRoutesApp/Info.plist
+            "$PLIST"
 
+      # ============================================================
+      # 4. Verify signing files
+      # ============================================================
+      - name: Verify signing files
+        script: |
+          echo "========================================"
+          echo "BUNDLE ID:"
+          echo "$BUNDLE_ID"
+          echo "========================================"
+
+          echo "PROVISIONING PROFILE:"
+          echo "$PROVISIONING_PROFILE_PATH"
+
+          echo "CERTIFICATE:"
+          echo "$CERTIFICATE_PATH"
+
+          echo "========================================"
+
+          if [ ! -f "$PROVISIONING_PROFILE_PATH" ]; then
+            echo "ERROR: Provisioning profile was not found!"
+            exit 1
+          fi
+
+          if [ ! -f "$CERTIFICATE_PATH" ]; then
+            echo "ERROR: Certificate was not found!"
+            exit 1
+          fi
+
+          echo "Provisioning profile exists."
+          echo "Certificate exists."
+
+      # ============================================================
+      # 5. Apply provisioning profile ONLY to main project
+      # ============================================================
       - name: Set up iOS code signing
         script: |
           xcode-project use-profiles \
-            --project "$CM_BUILD_DIR/ios/ToutRoutesApp.xcodeproj"
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --profile "$PROVISIONING_PROFILE_PATH"
 
-      - name: Verify signing configuration
+      # ============================================================
+      # 6. Verify Xcode signing configuration
+      # ============================================================
+      - name: Verify Xcode signing configuration
         script: |
-          echo "======================================"
-          echo "Bundle ID: $BUNDLE_ID"
-          echo "Project: $XCODE_PROJECT"
-          echo "Scheme: $XCODE_SCHEME"
-          echo "======================================"
+          echo "========================================"
+          echo "XCODE SIGNING SETTINGS"
+          echo "========================================"
 
           xcodebuild \
             -project "$CM_BUILD_DIR/$XCODE_PROJECT" \
@@ -70,12 +122,15 @@ workflows:
             -configuration Release \
             -showBuildSettings | \
             grep -E \
-            "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|PROVISIONING_PROFILE|PROVISIONING_PROFILE_SPECIFIER|DEVELOPMENT_TEAM" || true
+            "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|PROVISIONING_PROFILE|PROVISIONING_PROFILE_SPECIFIER|DEVELOPMENT_TEAM" || true
 
+      # ============================================================
+      # 7. Build signed IPA
+      # ============================================================
       - name: Build iOS release IPA
         script: |
           xcode-project build-ipa \
-            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME" \
             --config Release
 
@@ -88,7 +143,10 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
+
         submit_to_testflight: true
+
         beta_groups:
           - Internal Testers
+
         submit_to_app_store: false
