@@ -15,14 +15,21 @@ end
 node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
+# ============================================================
+# iOS 18
+# ============================================================
 platform :ios, '18.0'
 
 prepare_react_native_project!
 
+# ============================================================
 # Firebase / Swift pods
+# ============================================================
 use_modular_headers!
 
-# react-native-permissions
+# ============================================================
+# React Native Permissions
+# ============================================================
 setup_permissions([
   'Camera',
   'FaceID',
@@ -34,6 +41,9 @@ setup_permissions([
   'PhotoLibraryAddOnly',
 ])
 
+# ============================================================
+# Main App
+# ============================================================
 target 'ToutRoutesApp' do
 
   config = use_native_modules!
@@ -43,6 +53,9 @@ target 'ToutRoutesApp' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+  # ==========================================================
+  # Post Install
+  # ==========================================================
   post_install do |installer|
 
     react_native_post_install(
@@ -51,52 +64,144 @@ target 'ToutRoutesApp' do
       :mac_catalyst_enabled => false
     )
 
+    # ========================================================
+    # Force iOS 18 for ALL Pods
+    # ========================================================
     installer.pods_project.targets.each do |target|
 
       target.build_configurations.each do |build_config|
 
-        # ==========================================
-        # iOS 18
-        # ==========================================
-        build_config.build_settings[
-          'IPHONEOS_DEPLOYMENT_TARGET'
-        ] = '18.0'
+        build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '18.0'
 
-        # ==========================================
-        # React Native 0.81 / C++20
-        # ==========================================
-        build_config.build_settings[
-          'CLANG_CXX_LANGUAGE_STANDARD'
-        ] = 'c++20'
+        # React Native 0.81 / C++ requirements
+        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++20'
+        build_config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
 
-        build_config.build_settings[
-          'CLANG_CXX_LIBRARY'
-        ] = 'libc++'
-
-        # ==========================================
-        # Firebase / Modular Headers
-        # ==========================================
+        # Firebase / modular headers
         build_config.build_settings[
           'CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE'
         ] = 'NO'
 
-        # ==========================================
-        # fmt + Xcode 26 compatibility
-        # ==========================================
-        build_config.build_settings[
-          'GCC_PREPROCESSOR_DEFINITIONS'
-        ] ||= ['$(inherited)']
+      end
 
-        definitions =
-          build_config.build_settings[
-            'GCC_PREPROCESSOR_DEFINITIONS'
-          ]
+    end
 
-        unless definitions.include?('FMT_USE_NONTYPE_TEMPLATE_ARGS=0')
-          definitions << 'FMT_USE_NONTYPE_TEMPLATE_ARGS=0'
+    # ========================================================
+    # Xcode 26.4 + Apple Clang 21 + fmt workaround
+    #
+    # React Native's bundled fmt 11.x enables consteval.
+    # Xcode 26.4 is stricter and causes:
+    #
+    # call to consteval function ... is not a constant expression
+    #
+    # Disable FMT_USE_CONSTEVAL in fmt/base.h.
+    # ========================================================
+
+    fmt_base = File.join(
+      installer.sandbox.root,
+      'fmt',
+      'include',
+      'fmt',
+      'base.h'
+    )
+
+    if File.exist?(fmt_base)
+
+      content = File.read(fmt_base)
+
+      unless content.include?('Xcode 26.4 fmt consteval workaround')
+
+        patched_content = content.gsub(
+          /(#elif defined\(__cpp_consteval\)\n#\s*define FMT_USE_CONSTEVAL)\s+1/,
+          "\\1 0"
+        )
+
+        if patched_content != content
+
+          File.chmod(0644, fmt_base)
+
+          patched_content = patched_content.sub(
+            "#elif defined(__cpp_consteval)",
+            "#elif defined(__cpp_consteval)\n" \
+            "// Xcode 26.4 fmt consteval workaround"
+          )
+
+          File.write(fmt_base, patched_content)
+
+          puts "=================================================="
+          puts "Applied Xcode 26.4 fmt consteval workaround"
+          puts "fmt/base.h: FMT_USE_CONSTEVAL = 0"
+          puts "=================================================="
+
+        else
+
+          puts "=================================================="
+          puts "WARNING: fmt/base.h pattern was not found"
+          puts "=================================================="
+
         end
 
+      else
+
+        puts "=================================================="
+        puts "fmt consteval workaround already applied"
+        puts "=================================================="
+
       end
+
+    else
+
+      puts "=================================================="
+      puts "WARNING: fmt/base.h was not found"
+      puts "=================================================="
+
+    end
+
+    # ========================================================
+    # Explicit C++20 for React Native C++ Pods
+    # ========================================================
+
+    react_native_cpp_pods = [
+      'React',
+      'React-Core',
+      'ReactCommon',
+      'React-utils',
+      'React-runtimescheduler',
+      'React-runtimeexecutor',
+      'React-rendererdebug',
+      'React-perflogger',
+      'React-featureflags',
+      'React-debug',
+      'React-RCTFabric',
+      'React-RCTFBReactNativeSpec',
+      'Yoga',
+      'hermes-engine',
+      'RCT-Folly',
+      'boost',
+      'fast_float',
+      'glog',
+      'DoubleConversion',
+      'abseil'
+    ]
+
+    react_native_cpp_pods.each do |pod_name|
+
+      pod_target = installer.pods_project.targets.find do |target|
+        target.name == pod_name
+      end
+
+      next unless pod_target
+
+      pod_target.build_configurations.each do |build_config|
+
+        build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '18.0'
+
+        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++20'
+
+        build_config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+
+      end
+
     end
 
   end
