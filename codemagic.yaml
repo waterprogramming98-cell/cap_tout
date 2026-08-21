@@ -3,7 +3,6 @@ workflows:
     name: CapTout iOS Release
 
     max_build_duration: 90
-
     instance_type: mac_mini_m2
 
     integrations:
@@ -15,7 +14,7 @@ workflows:
         bundle_identifier: $BUNDLE_ID
 
       vars:
-        BUNDLE_ID: "com.captoutapp"
+        BUNDLE_ID: "com.toutsroutes.captout"
         XCODE_PROJECT: "ios/ToutRoutesApp.xcodeproj"
         XCODE_SCHEME: "ToutRoutesApp"
 
@@ -63,10 +62,7 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-
         submit_to_testflight: true
-
         beta_groups:
           - Internal Testers
-
         submit_to_app_store: false
