@@ -15,16 +15,15 @@ end
 node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
-# React Native 0.81 + current Firebase dependencies
+# React Native 0.81
 platform :ios, '18.0'
 
 prepare_react_native_project!
 
 # Firebase / Swift pods
-# Need module maps when using static libraries
+# Generate module maps for dependencies used by Swift pods
 use_modular_headers!
 
-# react-native-permissions
 setup_permissions([
   'Camera',
   'FaceID',
@@ -53,15 +52,40 @@ target 'ToutRoutesApp' do
       :mac_catalyst_enabled => false
     )
 
-    # Force iOS 15 for all Pods
+    # Force iOS 18.0 for ALL Pods
     installer.pods_project.targets.each do |target|
 
-      target.build_configurations.each do |config|
+      target.build_configurations.each do |build_config|
 
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+        build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '18.0'
+
+        # C/C++ compatibility with Xcode 26
+        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        build_config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+
+        # Firebase / modular headers compatibility
+        build_config.build_settings['CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE'] = 'NO'
 
       end
+    end
 
+    # Additional settings for problematic C/C++ pods
+    ['fmt', 'abseil', 'gRPC-C++', 'gRPC-Core'].each do |pod_name|
+
+      target = installer.pods_project.targets.find do |t|
+        t.name == pod_name
+      end
+
+      next unless target
+
+      target.build_configurations.each do |build_config|
+
+        build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '18.0'
+        build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        build_config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+        build_config.build_settings['CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE'] = 'NO'
+
+      end
     end
 
   end
