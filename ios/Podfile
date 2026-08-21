@@ -9,8 +9,12 @@ end
 node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
-platform :ios, min_ios_version_supported
+platform :ios, '15.0'
+
 prepare_react_native_project!
+
+# Enable modular headers for Firebase Swift pods
+use_modular_headers!
 
 # react-native-permissions: declare only the permissions your app uses
 setup_permissions([
@@ -25,6 +29,7 @@ setup_permissions([
 ])
 
 linkage = ENV['USE_FRAMEWORKS']
+
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
