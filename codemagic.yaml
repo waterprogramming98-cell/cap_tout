@@ -11,7 +11,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: $BUNDLE_ID
+        bundle_identifier: com.toutsroutes.captout
 
       vars:
         BUNDLE_ID: "com.toutsroutes.captout"
@@ -31,6 +31,9 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd ios
+          rm -rf Pods
+          rm -f Podfile.lock
+          pod deintegrate || true
           pod install --repo-update
 
       - name: Set Google Maps API Key
