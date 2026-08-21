@@ -31,9 +31,15 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd ios
+
           rm -rf Pods
+          rm -rf build
           rm -f Podfile.lock
+
           pod deintegrate || true
+
+          export IPHONEOS_DEPLOYMENT_TARGET=18.0
+
           pod install --repo-update
 
       - name: Set Google Maps API Key
@@ -47,7 +53,8 @@ workflows:
 
       - name: Set up iOS code signing
         script: |
-          xcode-project use-profiles
+          xcode-project use-profiles \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT"
 
       - name: Build iOS release IPA
         script: |
