@@ -10,8 +10,8 @@ workflows:
 
     environment:
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.toutsroutes.captout
+        provisioning_profiles:
+          - Tout
 
       vars:
         BUNDLE_ID: "com.toutsroutes.captout"
@@ -53,8 +53,27 @@ workflows:
 
       - name: Set up iOS code signing
         script: |
-          xcode-project use-profiles \
-            --project "$CM_BUILD_DIR/$XCODE_PROJECT"
+          xcode-project use-profiles
+
+      - name: Verify code signing
+        script: |
+          echo "=== Bundle ID ==="
+          echo "$BUNDLE_ID"
+
+          echo "=== Xcode Project ==="
+          echo "$XCODE_PROJECT"
+
+          echo "=== Xcode Scheme ==="
+          echo "$XCODE_SCHEME"
+
+          echo "=== Build Settings ==="
+          xcodebuild \
+            -project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -showBuildSettings | \
+            grep -E \
+            "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|PROVISIONING_PROFILE|PROVISIONING_PROFILE_SPECIFIER|DEVELOPMENT_TEAM" || true
 
       - name: Build iOS release IPA
         script: |
