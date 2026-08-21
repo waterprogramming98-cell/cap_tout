@@ -25,26 +25,38 @@ workflows:
 
     scripts:
 
-      # ---------------------------------------
+      # ==========================================
       # Install JavaScript dependencies
-      # ---------------------------------------
+      # ==========================================
       - name: Install npm dependencies
         script: |
+          set -e
+
           npm install --legacy-peer-deps
 
-      # ---------------------------------------
+
+      # ==========================================
       # Install CocoaPods
-      # ---------------------------------------
+      # ==========================================
       - name: Install CocoaPods dependencies
         script: |
+          set -e
+
           cd "$CM_BUILD_DIR/ios"
+
+          rm -rf Pods
+          rm -f Podfile.lock
+
           pod install --repo-update
 
-      # ---------------------------------------
-      # Set Google Maps API Key
-      # ---------------------------------------
+
+      # ==========================================
+      # Google Maps API Key
+      # ==========================================
       - name: Set Google Maps API Key
         script: |
+          set -e
+
           /usr/libexec/PlistBuddy \
             -c "Set :GMSApiKey AIzaSyC09p4-3IhSac_zt_2C_fd-ML8kFaRAXes" \
             "$CM_BUILD_DIR/ios/ToutRoutesApp/Info.plist" || \
@@ -52,49 +64,71 @@ workflows:
             -c "Add :GMSApiKey string AIzaSyC09p4-3IhSac_zt_2C_fd-ML8kFaRAXes" \
             "$CM_BUILD_DIR/ios/ToutRoutesApp/Info.plist"
 
-      # ---------------------------------------
+
+      # ==========================================
+      # Configure iOS Code Signing
       # IMPORTANT:
-      # Apply provisioning profile ONLY
-      # to our main Xcode project
-      # ---------------------------------------
+      # Only sign the MAIN Xcode project.
+      # Do NOT scan node_modules projects.
+      # ==========================================
       - name: Set up iOS code signing
         script: |
-          xcode-project use-profiles \
-            --project "$CM_BUILD_DIR/$XCODE_PROJECT"
+          set -e
 
-      # ---------------------------------------
-      # Verify signing settings
-      # ---------------------------------------
+          xcode-project use-profiles \
+            --project "$CM_BUILD_DIR/ios/ToutRoutesApp.xcodeproj"
+
+
+      # ==========================================
+      # Verify Signing
+      # ==========================================
       - name: Verify iOS signing
         script: |
-          echo "======================================"
-          echo "Bundle ID:"
+          set -e
+
+          echo "=========================================="
+          echo "BUNDLE ID"
+          echo "=========================================="
+
           echo "$BUNDLE_ID"
-          echo "======================================"
 
-          echo "Available provisioning profiles:"
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
+          echo ""
+          echo "=========================================="
+          echo "PROVISIONING PROFILES"
+          echo "=========================================="
 
-          echo "======================================"
-          echo "Xcode signing settings:"
-          echo "======================================"
+          find "$HOME/Library/MobileDevice/Provisioning Profiles" \
+            -type f \
+            -maxdepth 1 \
+            -print || true
+
+          echo ""
+          echo "=========================================="
+          echo "SIGNING SETTINGS"
+          echo "=========================================="
 
           xcodebuild \
-            -project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            -project "$CM_BUILD_DIR/ios/ToutRoutesApp.xcodeproj" \
             -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -showBuildSettings | \
-            grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|CODE_SIGN_IDENTITY" || true
+            grep -E \
+            "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|CODE_SIGN_IDENTITY" \
+            || true
 
-      # ---------------------------------------
-      # Build signed IPA
-      # ---------------------------------------
+
+      # ==========================================
+      # Build IPA
+      # ==========================================
       - name: Build iOS release IPA
         script: |
+          set -e
+
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME" \
             --config Release
+
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -102,10 +136,14 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
+
     publishing:
       app_store_connect:
         auth: integration
+
         submit_to_testflight: true
+
         beta_groups:
           - Internal Testers
+
         submit_to_app_store: false
