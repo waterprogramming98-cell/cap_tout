@@ -1,160 +1,104 @@
-workflows:
-  ios-release:
-    name: CapTout iOS Release
+def node_require(script)
+  require Pod::Executable.execute_command(
+    'node',
+    [
+      '-p',
+      "require.resolve(
+        '#{script}',
+        {paths: [process.argv[1]]},
+      )",
+      __dir__
+    ]
+  ).strip
+end
 
-    max_build_duration: 120
-    instance_type: mac_mini_m2
+node_require('react-native/scripts/react_native_pods.rb')
+node_require('react-native-permissions/scripts/setup.rb')
 
-    integrations:
-      app_store_connect: Codemagic K-Waiter
+platform :ios, '18.0'
 
-    environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.toutsroutes.captout
+prepare_react_native_project!
 
-      vars:
-        BUNDLE_ID: "com.toutsroutes.captout"
-        XCODE_PROJECT: "ios/ToutRoutesApp.xcodeproj"
-        XCODE_WORKSPACE: "ios/ToutRoutesApp.xcworkspace"
-        XCODE_SCHEME: "ToutRoutesApp"
+# Firebase / Swift pods
+use_modular_headers!
 
-      node: 20.19.4
-      xcode: latest
-      cocoapods: default
+# react-native-permissions
+setup_permissions([
+  'Camera',
+  'FaceID',
+  'LocationAccuracy',
+  'LocationAlways',
+  'LocationWhenInUse',
+  'Notifications',
+  'PhotoLibrary',
+  'PhotoLibraryAddOnly',
+])
 
-    scripts:
+target 'ToutRoutesApp' do
 
-      # ==========================================
-      # Install JavaScript dependencies
-      # ==========================================
-      - name: Install npm dependencies
-        script: |
-          set -e
+  config = use_native_modules!
 
-          npm install --legacy-peer-deps
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :app_path => "#{Pod::Config.instance.installation_root}/.."
+  )
 
+  post_install do |installer|
 
-      # ==========================================
-      # Install CocoaPods
-      # ==========================================
-      - name: Install CocoaPods dependencies
-        script: |
-          set -e
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false
+    )
 
-          cd "$CM_BUILD_DIR/ios"
+    installer.pods_project.targets.each do |target|
 
-          rm -rf Pods
-          rm -f Podfile.lock
+      target.build_configurations.each do |build_config|
 
-          pod cache clean --all || true
+        # ==========================================
+        # iOS 18
+        # ==========================================
+        build_config.build_settings[
+          'IPHONEOS_DEPLOYMENT_TARGET'
+        ] = '18.0'
 
-          pod install --repo-update
+        # ==========================================
+        # React Native 0.81 / C++20
+        # ==========================================
+        build_config.build_settings[
+          'CLANG_CXX_LANGUAGE_STANDARD'
+        ] = 'c++20'
 
+        build_config.build_settings[
+          'CLANG_CXX_LIBRARY'
+        ] = 'libc++'
 
-      # ==========================================
-      # Google Maps API Key
-      # ==========================================
-      - name: Set Google Maps API Key
-        script: |
-          set -e
+        # ==========================================
+        # Firebase / Modular Headers
+        # ==========================================
+        build_config.build_settings[
+          'CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE'
+        ] = 'NO'
 
-          /usr/libexec/PlistBuddy \
-            -c "Set :GMSApiKey AIzaSyC09p4-3IhSac_zt_2C_fd-ML8kFaRAXes" \
-            "$CM_BUILD_DIR/ios/ToutRoutesApp/Info.plist" || \
-          /usr/libexec/PlistBuddy \
-            -c "Add :GMSApiKey string AIzaSyC09p4-3IhSac_zt_2C_fd-ML8kFaRAXes" \
-            "$CM_BUILD_DIR/ios/ToutRoutesApp/Info.plist"
+        # ==========================================
+        # fmt + Xcode 26 compatibility
+        # ==========================================
+        build_config.build_settings[
+          'GCC_PREPROCESSOR_DEFINITIONS'
+        ] ||= ['$(inherited)']
 
+        definitions =
+          build_config.build_settings[
+            'GCC_PREPROCESSOR_DEFINITIONS'
+          ]
 
-      # ==========================================
-      # Configure iOS Code Signing
-      # ==========================================
-      - name: Set up iOS code signing
-        script: |
-          set -e
+        unless definitions.include?('FMT_USE_NONTYPE_TEMPLATE_ARGS=0')
+          definitions << 'FMT_USE_NONTYPE_TEMPLATE_ARGS=0'
+        end
 
-          xcode-project use-profiles \
-            --project "$CM_BUILD_DIR/ios/ToutRoutesApp.xcodeproj"
+      end
+    end
 
+  end
 
-      # ==========================================
-      # Verify Signing
-      # ==========================================
-      - name: Verify iOS signing
-        script: |
-          set -e
-
-          echo "=========================================="
-          echo "BUNDLE ID"
-          echo "=========================================="
-
-          echo "$BUNDLE_ID"
-
-          echo ""
-          echo "=========================================="
-          echo "PROVISIONING PROFILES"
-          echo "=========================================="
-
-          find "$HOME/Library/MobileDevice/Provisioning Profiles" \
-            -type f \
-            -maxdepth 1 \
-            -print || true
-
-          echo ""
-          echo "=========================================="
-          echo "SIGNING SETTINGS"
-          echo "=========================================="
-
-          xcodebuild \
-            -project "$CM_BUILD_DIR/ios/ToutRoutesApp.xcodeproj" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -showBuildSettings | \
-            grep -E \
-            "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE|CODE_SIGN_IDENTITY" \
-            || true
-
-
-      # ==========================================
-      # Clean DerivedData
-      # ==========================================
-      - name: Clean Xcode DerivedData
-        script: |
-          set -e
-
-          rm -rf "$HOME/Library/Developer/Xcode/DerivedData/"*
-
-          echo "DerivedData cleaned."
-
-
-      # ==========================================
-      # Build IPA
-      # ==========================================
-      - name: Build iOS release IPA
-        script: |
-          set -e
-
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --config Release
-
-
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
-
-
-    publishing:
-      app_store_connect:
-        auth: integration
-
-        submit_to_testflight: true
-
-        beta_groups:
-          - Internal Testers
-
-        submit_to_app_store: false
+end
