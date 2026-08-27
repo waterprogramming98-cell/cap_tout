@@ -4,6 +4,9 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
+    integrations:
+      app_store_connect: CapTout
+
     environment:
       xcode: latest
       cocoapods: default
@@ -20,7 +23,7 @@ workflows:
         XCODE_SCHEME: 'ToutRoutesApp'
 
     scripts:
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods
         script: |
           cd ios
           pod install --repo-update
