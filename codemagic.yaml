@@ -4,51 +4,36 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
-    integrations:
-      app_store_connect: Codemagic CapTout
-
     environment:
       xcode: latest
       cocoapods: default
-      node: 22
 
       ios_signing:
         provisioning_profiles:
           - Tout
         certificates:
-          - K-Waiter Apple Distribution
+          - Tout
 
       vars:
-        BUNDLE_ID: 'com.microsolution.kwaiter3'
-        XCODE_PROJECT: 'ios/ToutApp.xcodeproj'
-        XCODE_SCHEME: 'ToutApp'
-
-    cache:
-      cache_paths:
-        - $HOME/Library/Caches/org.swift.swiftpm
-        - $CM_BUILD_DIR/ios/App/CapApp-SPM/.build
+        BUNDLE_ID: 'com.toutsroutes.capout'
+        XCODE_PROJECT: 'ios/ToutRoutesApp.xcodeproj'
+        XCODE_SCHEME: 'ToutRoutesApp'
 
     scripts:
-
-      - name: Install npm dependencies
+      - name: Install CocoaPods dependencies
         script: |
-          npm ci
-
-      - name: Build Vue web application
-        script: |
-          npm run build
-
-      - name: Sync Capacitor iOS
-        script: |
-          npx cap sync ios
-
-      - name: Fix iOS Swift Package paths
-        script: |
-          node scripts/fix-ios-spm-paths.mjs
+          cd ios
+          pod install --repo-update
 
       - name: Set up iOS code signing
         script: |
           xcode-project use-profiles
+
+      - name: Increment build number
+        script: |
+          cd $CM_BUILD_DIR
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$BUNDLE_ID" || echo 0)
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
 
       - name: Build iOS IPA
         script: |
@@ -58,7 +43,6 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
