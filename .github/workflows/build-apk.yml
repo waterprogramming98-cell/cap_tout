@@ -1,0 +1,79 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973" "platform-tools" --sdk_root=$ANDROID_HOME
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Fix autolinking_manual.json paths
+        run: |
+          NODE_MODULES_PATH="$(pwd)/node_modules"
+          if [ -f "android/autolinking_manual.json" ]; then
+            sed -i "s|__NODE_MODULES__|${NODE_MODULES_PATH}|g" android/autolinking_manual.json
+            echo "Fixed autolinking paths to: ${NODE_MODULES_PATH}"
+          fi
+
+      - name: Rebuild JS bundle from source
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle
+
+      - name: Setup local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+
+      - name: Make Gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build Release APK
+        run: cd android && ./gradlew assembleRelease --no-daemon -x lint
+
+      - name: Upload APK to gofile.io
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          echo "APK size: $(du -h "$APK" | cut -f1)"
+          echo "APK path: $APK"
+          # Get upload server
+          SERVER_RESP=$(curl -s "https://api.gofile.io/servers")
+          echo "Server response: $SERVER_RESP"
+          SERVER=$(echo "$SERVER_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['servers'][0]['name'])" 2>/dev/null || echo "store1")
+          echo "Using server: $SERVER"
+          # Upload
+          RESPONSE=$(curl -s --max-time 120 -F "file=@$APK" "https://${SERVER}.gofile.io/contents/uploadfile")
+          echo "Upload response: $RESPONSE"
+          URL=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['downloadPage'])" 2>/dev/null || echo "UPLOAD_FAILED")
+          echo "=========================================="
+          echo "DOWNLOAD CAPTOUTAPP APK: $URL"
+          echo "=========================================="
+        continue-on-error: false
+
+      - name: Upload APK artifact (if storage available)
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: CaptoutApp-APK
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 7

@@ -1,0 +1,6 @@
+This source package intentionally excludes credentials and service configuration.
+Obtain these securely from the app owner before creating a production build:
+- ios/GoogleService-Info.plist registered for com.captoutapp
+- Android google-services.json registered for com.captoutapp
+- Apple Developer signing certificate and provisioning profile for com.captoutapp
+- Google Maps iOS key and Android release signing credentials, if applicable

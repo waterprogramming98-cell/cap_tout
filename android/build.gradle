@@ -1,0 +1,56 @@
+buildscript {
+    ext {
+        buildToolsVersion = "36.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 36
+        targetSdkVersion = 36
+        ndkVersion = "27.0.12077973"
+        kotlinVersion = "2.1.20"
+        // Force all Google Play Services location to same version to fix FusedLocationProviderClient conflict
+        playServicesLocationVersion = "21.3.0"
+        googlePlayServicesVersion = "21.3.0"
+        googlePlayServicesLocationVersion = "21.3.0"
+    }
+    repositories {
+        maven { url "$rootDir/../local-maven" }
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.11.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.20")
+        classpath("com.facebook.react:react-native-gradle-plugin:0.81.4")
+        classpath("com.google.code.gson:gson:2.10.1")
+        classpath("com.google.gms:google-services:4.4.2")
+    }
+}
+
+allprojects {
+    repositories {
+        maven { url "$rootDir/../local-maven" }
+        maven {
+            url(new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim(), "../android"))
+        }
+        maven {
+            url(new File(["node", "--print", "require.resolve('@react-native/gradle-plugin/package.json')"].execute(null, rootDir).text.trim(), "../../../node_modules/react-native/sdks/hermes/android"))
+        }
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' }
+    }
+}
+
+subprojects {
+    buildscript {
+        repositories {
+            maven { url "$rootDir/../local-maven" }
+            google()
+            mavenCentral()
+        }
+        dependencies {
+            classpath("com.facebook.react:react-native-gradle-plugin:0.81.4")
+        }
+    }
+}
+
+

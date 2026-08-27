@@ -1,0 +1,70 @@
+pluginManagement {
+    buildscript {
+        repositories {
+            mavenCentral()
+        }
+        dependencies {
+            classpath("com.google.code.gson:gson:2.10.1")
+        }
+    }
+    repositories {
+        maven { url "$rootDir/../local-maven" }
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+
+plugins {
+    id("com.facebook.react.settings") version "0.81.4"
+}
+
+// Generate autolinking.json from autolinking_manual.json before RNGP reads it
+def autolinkingManualFile = new File(rootDir, "autolinking_manual.json")
+def autolinkingOutputDir = new File(rootDir, "build/generated/autolinking")
+def autolinkingOutputFile = new File(autolinkingOutputDir, "autolinking.json")
+if (autolinkingManualFile.exists() && !autolinkingOutputFile.exists()) {
+    autolinkingOutputDir.mkdirs()
+    def nodeModulesPath = new File(rootDir, "../node_modules").canonicalPath
+    def content = autolinkingManualFile.text
+        .replace("__NODE_MODULES__", nodeModulesPath)
+        .replace("__ANDROID_SOURCE_DIR__", rootDir.canonicalPath)
+    autolinkingOutputFile.text = content
+    println "Generated autolinking.json from autolinking_manual.json"
+}
+
+rootProject.name = "ToutRoutesApp"
+include(":app")
+
+def includeProject(name, path) {
+    include(":${name}")
+    project(":${name}").projectDir = new File(path)
+}
+
+includeProject("react-native-reanimated", "$rootDir/../node_modules/react-native-reanimated/android")
+includeProject("react-native-worklets", "$rootDir/../node_modules/react-native-worklets/android")
+includeProject("react-native-gesture-handler", "$rootDir/../node_modules/react-native-gesture-handler/android")
+includeProject("react-native-screens", "$rootDir/../node_modules/react-native-screens/android")
+includeProject("react-native-safe-area-context", "$rootDir/../node_modules/react-native-safe-area-context/android")
+includeProject("react-native-community_slider", "$rootDir/../node_modules/@react-native-community/slider/android")
+includeProject("react-native-vector-icons", "$rootDir/../node_modules/react-native-vector-icons/android")
+includeProject("react-native-maps", "$rootDir/../node_modules/react-native-maps/android")
+includeProject("react-native-linear-gradient", "$rootDir/../node_modules/react-native-linear-gradient/android")
+includeProject("lottie-react-native", "$rootDir/../node_modules/lottie-react-native/android")
+includeProject("react-native-biometrics", "$rootDir/../node_modules/react-native-biometrics/android")
+includeProject("react-native-device-info", "$rootDir/../node_modules/react-native-device-info/android")
+includeProject("react-native-keychain", "$rootDir/../node_modules/react-native-keychain/android")
+includeProject("react-native-video", "$rootDir/../node_modules/react-native-video/android")
+includeProject("react-native-firebase_app", "$rootDir/../node_modules/@react-native-firebase/app/android")
+includeProject("react-native-firebase_auth", "$rootDir/../node_modules/@react-native-firebase/auth/android")
+includeProject("react-native-firebase_firestore", "$rootDir/../node_modules/@react-native-firebase/firestore/android")
+includeProject("react-native-firebase_messaging", "$rootDir/../node_modules/@react-native-firebase/messaging/android")
+includeProject("react-native-firebase_storage", "$rootDir/../node_modules/@react-native-firebase/storage/android")
+includeProject("react-native-geolocation-service", "$rootDir/../node_modules/react-native-geolocation-service/android")
+includeProject("react-native-image-picker", "$rootDir/../node_modules/react-native-image-picker/android")
+includeProject("react-native-async-storage", "$rootDir/../node_modules/@react-native-async-storage/async-storage/android")
+includeProject("react-native-get-random-values", "$rootDir/../node_modules/react-native-get-random-values/android")
+includeProject("react-native-haptic-feedback", "$rootDir/../node_modules/react-native-haptic-feedback/android")
+includeProject("notifee_react-native", "$rootDir/../node_modules/@notifee/react-native/android")
+includeProject("react-native-clipboard_clipboard", "$rootDir/../node_modules/@react-native-clipboard/clipboard/android")
+includeProject("react-native-community_datetimepicker", "$rootDir/../node_modules/@react-native-community/datetimepicker/android")
