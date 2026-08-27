@@ -1,18 +1,48 @@
 def node_require(script)
-  require Pod::Executable.execute_command('node', ['-p',
-    "require.resolve(
-      '#{script}',
-      {paths: [process.argv[1]]},
-    )", __dir__]).strip
+  require Pod::Executable.execute_command(
+    'node',
+    [
+      '-p',
+      "require.resolve(
+        '#{script}',
+        {paths: [process.argv[1]]},
+      )",
+      __dir__
+    ]
+  ).strip
 end
 
 node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
-platform :ios, min_ios_version_supported
+# ============================================================
+# iOS
+# ============================================================
+
+platform :ios, '18.0'
+
 prepare_react_native_project!
 
-# react-native-permissions: declare only the permissions your app uses
+# ============================================================
+# React Native Firebase
+#
+# Static frameworks.
+#
+# IMPORTANT:
+# Do NOT use:
+# use_modular_headers!
+#
+# Do NOT manually add Firebase modular_headers.
+# ============================================================
+
+use_frameworks! :linkage => :static
+
+$RNFirebaseAsStaticFramework = true
+
+# ============================================================
+# React Native Permissions
+# ============================================================
+
 setup_permissions([
   'Camera',
   'FaceID',
@@ -24,25 +54,249 @@ setup_permissions([
   'PhotoLibraryAddOnly',
 ])
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+# ============================================================
+# Main Target
+# ============================================================
 
 target 'ToutRoutesApp' do
+
   config = use_native_modules!
+
+  # ==========================================================
+  # React Native
+  # ==========================================================
 
   use_react_native!(
     :path => config[:reactNativePath],
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+  # ==========================================================
+  # POST INSTALL
+  # ==========================================================
+
   post_install do |installer|
+
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false,
+      :mac_catalyst_enabled => false
     )
+
+    # ========================================================
+    # General Pod settings
+    # ========================================================
+
+    installer.pods_project.targets.each do |target|
+
+      target.build_configurations.each do |build_config|
+
+        # ----------------------------------------------------
+        # iOS 18
+        # ----------------------------------------------------
+
+        build_config.build_settings[
+          'IPHONEOS_DEPLOYMENT_TARGET'
+        ] = '18.0'
+
+        # ----------------------------------------------------
+        # Xcode 26
+        # ----------------------------------------------------
+
+        build_config.build_settings[
+          'SWIFT_ENABLE_EXPLICIT_MODULES'
+        ] = 'NO'
+
+        # ----------------------------------------------------
+        # Avoid non-modular include errors
+        # ----------------------------------------------------
+
+        build_config.build_settings[
+          'CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE'
+        ] = 'NO'
+
+      end
+
+    end
+
+    # ========================================================
+    # React Native C++ pods
+    # ========================================================
+
+    react_native_cpp_pods = [
+      'React',
+      'React-Core',
+      'ReactCommon',
+      'React-utils',
+      'React-runtimescheduler',
+      'React-runtimeexecutor',
+      'React-rendererdebug',
+      'React-perflogger',
+      'React-featureflags',
+      'React-debug',
+      'React-RCTFabric',
+      'React-RCTFBReactNativeSpec',
+      'ReactCodegen',
+      'Yoga',
+      'hermes-engine'
+    ]
+
+    react_native_cpp_pods.each do |pod_name|
+
+      target = installer.pods_project.targets.find do |t|
+        t.name == pod_name
+      end
+
+      next unless target
+
+      target.build_configurations.each do |build_config|
+
+        build_config.build_settings[
+          'IPHONEOS_DEPLOYMENT_TARGET'
+        ] = '18.0'
+
+        build_config.build_settings[
+          'CLANG_CXX_LANGUAGE_STANDARD'
+        ] = 'c++20'
+
+        build_config.build_settings[
+          'CLANG_CXX_LIBRARY'
+        ] = 'libc++'
+
+      end
+
+    end
+
+    # ========================================================
+    # gRPC
+    #
+    # Do NOT use modular headers.
+    # ========================================================
+
+    [
+      'gRPC-Core',
+      'gRPC-C++'
+    ].each do |pod_name|
+
+      target = installer.pods_project.targets.find do |t|
+        t.name == pod_name
+      end
+
+      next unless target
+
+      target.build_configurations.each do |build_config|
+
+        build_config.build_settings[
+          'IPHONEOS_DEPLOYMENT_TARGET'
+        ] = '18.0'
+
+        build_config.build_settings[
+          'CLANG_CXX_LANGUAGE_STANDARD'
+        ] = 'c++17'
+
+        build_config.build_settings[
+          'CLANG_CXX_LIBRARY'
+        ] = 'libc++'
+
+        build_config.build_settings[
+          'DEFINES_MODULE'
+        ] = 'NO'
+
+        build_config.build_settings[
+          'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'
+        ] = 'YES'
+
+      end
+
+    end
+
+    # ========================================================
+    # fmt 11.0.2 + Xcode 26.4
+    #
+    # Fix:
+    # call to consteval function ... is not a constant expression
+    # ========================================================
+
+    fmt_base = File.join(
+      installer.sandbox.root,
+      'fmt',
+      'include',
+      'fmt',
+      'base.h'
+    )
+
+    if File.exist?(fmt_base)
+
+      content = File.read(fmt_base)
+
+      marker = '// Xcode 26.4 fmt consteval workaround'
+
+      unless content.include?(marker)
+
+        patched = content.gsub(
+          /^\#\s*define FMT_USE_CONSTEVAL 1$/,
+          "#{marker}\n#  define FMT_USE_CONSTEVAL 0"
+        )
+
+        if patched != content
+
+          File.chmod(0644, fmt_base)
+
+          File.write(
+            fmt_base,
+            patched
+          )
+
+          puts "=========================================="
+          puts "fmt workaround applied"
+          puts "=========================================="
+
+        else
+
+          puts "WARNING: fmt FMT_USE_CONSTEVAL was not found."
+
+        end
+
+      else
+
+        puts "fmt workaround already applied."
+
+      end
+
+    else
+
+      puts "WARNING: fmt/base.h not found."
+
+    end
+
+    # ========================================================
+    # Main application target
+    # ========================================================
+
+    installer.aggregate_targets.each do |aggregate_target|
+
+      user_project = aggregate_target.user_project
+
+      next unless user_project
+
+      user_project.native_targets.each do |target|
+
+        next unless target.name == 'ToutRoutesApp'
+
+        target.build_configurations.each do |build_config|
+
+          build_config.build_settings[
+            'IPHONEOS_DEPLOYMENT_TARGET'
+          ] = '18.0'
+
+        end
+
+      end
+
+      user_project.save
+
+    end
+
   end
+
 end
