@@ -10,31 +10,36 @@ workflows:
     environment:
       xcode: latest
       cocoapods: default
-      node: 20
+      node: 22
 
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.toutsroutes.captout
+        provisioning_profiles:
+          - ToutRoutesApp_APP_STORE
+        certificates:
+          - ToutRoutesApp Apple Distribution
 
       vars:
-        BUNDLE_ID: com.toutsroutes.captout
-        XCODE_PROJECT: ios/ToutRoutesApp.xcodeproj
-        XCODE_SCHEME: ToutRoutesApp
+        BUNDLE_ID: 'com.toutsroutes.cap-tout'
+        XCODE_PROJECT: 'ios/ToutRoutesApp.xcodeproj'
+        XCODE_SCHEME: 'ToutRoutesApp'
 
     scripts:
+
       - name: Install npm dependencies
         script: |
-          npm install --legacy-peer-deps
+          npm ci
 
-      - name: Install CocoaPods
+      - name: Build web application
         script: |
-          cd ios
-          pod install --repo-update
+          npm run build
 
-      - name: Set build number
+      - name: Sync Capacitor iOS
         script: |
-          LATEST=$(app-store-connect get-latest-build-number "$BUNDLE_ID" 2>/dev/null || echo "0")
-          agvtool new-version -all $((LATEST + 1))
+          npx cap sync ios
+
+      - name: Set up iOS code signing
+        script: |
+          xcode-project use-profiles
 
       - name: Build iOS IPA
         script: |
@@ -44,7 +49,6 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - ios/ToutRoutesApp/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
@@ -52,5 +56,5 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        submit_to_testflight: false
         submit_to_app_store: false
