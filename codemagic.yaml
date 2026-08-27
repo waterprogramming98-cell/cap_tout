@@ -1,26 +1,28 @@
 workflows:
   ios-release:
     name: CapTout iOS Release
-    max_build_duration: 90
+    max_build_duration: 120
     instance_type: mac_mini_m2
 
+    integrations:
+      app_store_connect: Codemagic CapTout
+
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: $BUNDLE_ID
-
-      vars:
-        XCODE_PROJECT: ios/ToutApp.xcodeproj
-        XCODE_SCHEME: ToutApp
-        BUNDLE_ID: com.toutsroutes.captout
-
-      node: 20
       xcode: latest
       cocoapods: default
+      node: 20
+
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.toutsroutes.captout
+
+      vars:
+        BUNDLE_ID: com.toutsroutes.captout
+        XCODE_PROJECT: ios/ToutRoutesApp.xcodeproj
+        XCODE_SCHEME: ToutRoutesApp
 
     scripts:
-
-      - name: Install JavaScript dependencies
+      - name: Install npm dependencies
         script: |
           npm install --legacy-peer-deps
 
@@ -34,16 +36,17 @@ workflows:
           LATEST=$(app-store-connect get-latest-build-number "$BUNDLE_ID" 2>/dev/null || echo "0")
           agvtool new-version -all $((LATEST + 1))
 
-      - name: Build signed IPA
+      - name: Build iOS IPA
         script: |
           xcode-project build-ipa \
             --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME" \
-            --config Release
+            --scheme "$XCODE_SCHEME"
 
     artifacts:
       - build/ios/ipa/*.ipa
+      - ios/ToutRoutesApp/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
     publishing:
