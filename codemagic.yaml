@@ -20,13 +20,13 @@ workflows:
 
       vars:
         BUNDLE_ID: 'com.microsolution.kwaiter3'
-        XCODE_PROJECT: 'ios/ToutRoutesApp.xcodeproj'
-        XCODE_SCHEME: 'ToutRoutesApp'
+        XCODE_PROJECT: 'ios/ToutApp.xcodeproj'
+        XCODE_SCHEME: 'ToutApp'
 
-      cache:
-        cache_paths:
-          - $HOME/Library/Caches/org.swift.swiftpm
-          - $CM_BUILD_DIR/ios/App/CapApp-SPM/.build
+    cache:
+      cache_paths:
+        - $HOME/Library/Caches/org.swift.swiftpm
+        - $CM_BUILD_DIR/ios/App/CapApp-SPM/.build
 
     scripts:
 
