@@ -14,14 +14,19 @@ workflows:
 
       ios_signing:
         provisioning_profiles:
-          - ToutRoutesApp_APP_STORE
+          - Tout
         certificates:
-          - ToutRoutesApp Apple Distribution
+          - K-Waiter Apple Distribution
 
       vars:
-        BUNDLE_ID: 'com.toutsroutes.cap-tout'
+        BUNDLE_ID: 'com.microsolution.kwaiter3'
         XCODE_PROJECT: 'ios/ToutRoutesApp.xcodeproj'
         XCODE_SCHEME: 'ToutRoutesApp'
+
+      cache:
+        cache_paths:
+          - $HOME/Library/Caches/org.swift.swiftpm
+          - $CM_BUILD_DIR/ios/App/CapApp-SPM/.build
 
     scripts:
 
@@ -29,13 +34,17 @@ workflows:
         script: |
           npm ci
 
-      - name: Build web application
+      - name: Build Vue web application
         script: |
           npm run build
 
       - name: Sync Capacitor iOS
         script: |
           npx cap sync ios
+
+      - name: Fix iOS Swift Package paths
+        script: |
+          node scripts/fix-ios-spm-paths.mjs
 
       - name: Set up iOS code signing
         script: |
@@ -49,6 +58,7 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
+      - ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
